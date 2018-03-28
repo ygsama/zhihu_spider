@@ -66,8 +66,15 @@ class QuestionPipeline(object):
 
         # 送入kafka, 根据 id 查询 question_measure 是否有历史数据
         cursor = self.mysql_client.cursor()
+        cursor.execute(
+            'SELECT create_time FROM question WHERE id='+ str(id) )
+        create_time = ""
+        for c in cursor:
+            create_time = c[0]
+
+
         re = cursor.execute(
-            'SELECT answer_count,coment_count,follower_count,view_count FROM question_measure WHERE id='
+            'SELECT answer_count,coment_count,follower_count,view_count,inser_time FROM question_measure WHERE id='
             +id+' ORDER BY insert_time DESC LIMIT 1')
 
         if re > 0:
@@ -75,15 +82,20 @@ class QuestionPipeline(object):
             for i in cursor:
                 # 送入kafka
                 data = {
-                    "id"      : id,
-                    "answer"  : i[0],
-                    "coment"  : i[2],
-                    "view"    : i[3],
-                    "follower": i[1],
-                    "last_answer"  :answer_count,
-                    "last_coment"  :coment_count,
-                    "last_follower":follower_count,
-                    "last_view"    :view_count
+                    "id"            : id,
+                    "create_time"   : create_time,
+                    "answer"        : answer_count,
+                    "coment"        : coment_count,
+                    "follower"      : follower_count,
+                    "view"          : view_count,
+                    "inser_time"    : insert_time,
+
+                    "last_answer"       : i[0],
+                    "last_coment"       : i[1],
+                    "last_follower"     : i[2],
+                    "last_view"         : i[3],
+                    "last_inser_time"   : i[4],
+
                 }
 
             self.kafka_producer.produce(bytes(str(data),encoding="utf-8"))
@@ -209,10 +221,12 @@ if __name__=='__main__':
 
     mysql_client = pymysql.connect(host="localhost", user="root", password="root", db="zhihu", charset="utf8")
     cursor =  mysql_client.cursor()
-    re = cursor.execute('SELECT id FROM question WHERE create_time > "2015-01-01"')
+    re = cursor.execute('SELECT id FROM question WHERE create_time > "2016-01-01"')
 
     client = Redis(host='localhost', port=6379, db=0, password=None)
     for i in cursor:
         print(str(client.sadd("zhihu:question", i[0])))
+
+
 
 
