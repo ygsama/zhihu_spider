@@ -24,7 +24,7 @@ class QuestionPipeline(object):
         self.mysql_client = pymysql.connect(host="localhost", user="root", password="root", db="zhihu", charset="utf8")
 
         client = KafkaClient(hosts="slave02:9092, slave01:9092, master:9092")
-        topic = client.topics[b'zhihu_question']  # 选择一个topic
+        topic = client.topics[b'question']  # 选择一个topic
         self.kafka_producer = topic.get_producer()
 
 
@@ -74,7 +74,7 @@ class QuestionPipeline(object):
 
 
         re = cursor.execute(
-            'SELECT answer_count,coment_count,follower_count,view_count,inser_time FROM question_measure WHERE id='
+            'SELECT answer_count,coment_count,follower_count,view_count,insert_time FROM question_measure WHERE id='
             +id+' ORDER BY insert_time DESC LIMIT 1')
 
         if re > 0:
@@ -85,23 +85,18 @@ class QuestionPipeline(object):
                     "id"            : id,
                     "create_time"   : create_time,
                     "answer"        : answer_count,
-                    "coment"        : coment_count,
                     "follower"      : follower_count,
                     "view"          : view_count,
-                    "inser_time"    : insert_time,
+                    "insert_time"    : insert_time,
 
                     "last_answer"       : i[0],
-                    "last_coment"       : i[1],
                     "last_follower"     : i[2],
                     "last_view"         : i[3],
-                    "last_inser_time"   : i[4],
+                    "last_insert_time"   : i[4],
 
                 }
 
             self.kafka_producer.produce(bytes(str(data),encoding="utf-8"))
-            print("kafka produce ---------------------")
-        else:
-            print("no ---------------------")
 
 
         # 将数据存入持久化到 mysql中
