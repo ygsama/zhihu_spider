@@ -54,6 +54,7 @@ ROBOTSTXT_OBEY = False
 # See https://doc.scrapy.org/en/latest/topics/downloader-middleware.html
 DOWNLOADER_MIDDLEWARES = {
    'zhihu_spider.middlewares.ZhihuSpiderDownloaderMiddleware': 543,
+   # 'zhihu_spider.middlewares.ProxyMiddleware': 90,
 }
 
 # Enable or disable extensions

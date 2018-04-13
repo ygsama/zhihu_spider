@@ -7,7 +7,8 @@
 
 from scrapy import signals
 import random
-from zhihu_spider import dics
+import time
+from zhihu_spider import config
 
 class ZhihuSpiderSpiderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
@@ -57,6 +58,8 @@ class ZhihuSpiderSpiderMiddleware(object):
         spider.logger.info('Spider opened: %s' % spider.name)
 
 
+
+
 class ZhihuSpiderDownloaderMiddleware(object):
     # Not all methods need to be defined. If a method is not defined,
     # scrapy acts as if the downloader middleware does not modify the
@@ -70,15 +73,12 @@ class ZhihuSpiderDownloaderMiddleware(object):
         return s
 
     def process_request(self, request, spider):
-        # Called for each request that goes through the downloader
-        # middleware.
 
-        agent = random.choice(dics.agents)
+        agent = random.choice(config.AGENTS)
         request.headers["User-Agent"] = agent
-        # print(request.headers["User-Agent"])
 
 
-        with open(r'E:\py_workspace\zhihu_spider\zhihu_spider\zhihu.cookie', 'r') as file:
+        with open(config.ZHIHU_COOKIE, 'r') as file:
             lines = file.readlines()
             line = random.choice(lines)
             cookie_dict = {}
@@ -86,13 +86,8 @@ class ZhihuSpiderDownloaderMiddleware(object):
                 k, v = cookie.strip().split('=', 1)  # 1代表只分割一次
                 cookie_dict[k] = v
         request.cookies = cookie_dict
-        print(cookie_dict['_xsrf'])
-        # Must either:
-        # - return None: continue processing this request
-        # - or return a Response object
-        # - or return a Request object
-        # - or raise IgnoreRequest: process_exception() methods of
-        #   installed downloader middleware will be called
+        spider.logger.info('_xsrf: %s' % cookie_dict['_xsrf'])
+
         return None
 
     def process_response(self, request, response, spider):

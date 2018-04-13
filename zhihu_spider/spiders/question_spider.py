@@ -6,6 +6,9 @@ from redis import Redis
 import json
 from zhihu_spider.items import QuestionSpiderItem
 from bs4 import BeautifulSoup
+from zhihu_spider.config import (
+    REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, DEFAULT_REDIS_DB,
+)
 
 class Questionpider(scrapy.Spider):
     name = "question"
@@ -28,7 +31,7 @@ class Questionpider(scrapy.Spider):
 
     custom_settings = {
 
-        "DOWNLOAD_DELAY": 1.9,  # 延迟时间，秒
+        "DOWNLOAD_DELAY": 2.5,  # 延迟时间，秒
         # "CLOSESPIDER_PAGECOUNT": 50,  # 爬取请求次数限制
         'ITEM_PIPELINES': {
             'zhihu_spider.pipelines.QuestionPipeline': 100,
@@ -36,14 +39,14 @@ class Questionpider(scrapy.Spider):
 
     }
 
-    # https://www.zhihu.com/question/268211064
     start_urls = []
     url = ""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.key = '%s:%s' % ('zhihu', 'question')
-        self.redis_client = Redis(host='localhost', port=6379, db=0, password=None)
+        self.redis_client = Redis(
+            host=REDIS_HOST, port=REDIS_PORT, db=DEFAULT_REDIS_DB, password=REDIS_PASSWORD)
 
 
     def start_requests(self):
@@ -92,6 +95,8 @@ class Questionpider(scrapy.Spider):
             yield item
         else:
             pass
+            # TODO 移除reids集合，修改mysql问题状态
+
 
         self.id = self.redis_client.spop(self.key)
         while True:

@@ -8,6 +8,12 @@ from pykafka import KafkaClient
 from redis import Redis
 import pymysql
 import time
+from zhihu_spider.config import (
+    REDIS_HOST, REDIS_PORT, REDIS_PASSWORD, DEFAULT_REDIS_DB,
+    MYSQL_HOST, MYSQL_USER, MYSQL_PASSWORD, MYSQL_DB, MYSQL_PORT,
+    KAFKA_HOSTS, KAFKA_TOPICS
+)
+
 
 '''
     从任务队列获取问题，爬取问题的实时数据
@@ -20,12 +26,17 @@ class QuestionPipeline(object):
 
     def open_spider(self, spider):
         self.key = '%s:%s' % ('zhihu', 'question')
-        self.redis_client = Redis(host='localhost', port=6379, db=0, password=None)
-        self.mysql_client = pymysql.connect(host="localhost", user="root", password="root", db="zhihu", charset="utf8")
+        self.redis_client = Redis(
+            host=REDIS_HOST, port=REDIS_PORT, db=DEFAULT_REDIS_DB, password=REDIS_PASSWORD)
 
-        client = KafkaClient(hosts="slave02:9092, slave01:9092, master:9092")
-        topic = client.topics[b'question']  # 选择一个topic
+        self.mysql_client = pymysql.connect(
+             host=MYSQL_HOST,user=MYSQL_USER,port=MYSQL_PORT,password=MYSQL_PASSWORD,db=MYSQL_DB,charset="utf8")
+
+        client = KafkaClient(hosts=KAFKA_HOSTS)
+        topic = client.topics[KAFKA_TOPICS]  # 选择一个topic
         self.kafka_producer = topic.get_producer()
+
+
 
 
     def close_spider(self, spider):
@@ -92,7 +103,7 @@ class QuestionPipeline(object):
                     "last_answer"       : i[0],
                     "last_follower"     : i[2],
                     "last_view"         : i[3],
-                    "last_insert_time"   : i[4],
+                    "last_insert_time"  : i[4],
 
                 }
 
@@ -101,21 +112,22 @@ class QuestionPipeline(object):
 
         # 将数据存入持久化到 mysql中
         cursor.execute(
-            'INSERT INTO question_measure(id, answer_count, coment_count, follower_count, view_count, insert_time)'
-            'VALUES ("%s", "%s", "%s", "%s", "%s", "%s") '
+            'INSERT INTO question_measure(id, answer_count, coment_count, follower_count, view_count, insert_time) '
+            'VALUES ("%s", "%s", "%s", "%s", "%s", "%s")'
             % (id, answer_count, coment_count, follower_count, view_count, insert_time))
+
         cursor.execute('UPDATE question set update_time="%s", topics="%s", title="%s"'
-                       'WHERE id="%s"' % (insert_time, topics, title, id))
+                       'WHERE id="%s"' % (insert_time, topics, title.replace("\"","'"), id))
+
         self.mysql_client.commit()
         cursor.close()
 
 
 
 
-
 '''
     每隔一段时间，爬取根话题的Top50问答
-    1、id放入redis任务集合，去重√
+    1、id放入redis任务集合，去重set
     2、question数据持久化到mysql中
 '''
 class RootPipeline(object):
@@ -123,9 +135,11 @@ class RootPipeline(object):
 
     def open_spider(self, spider):
         self.key = '%s:%s' % ('zhihu', 'question')
-        self.redis_client = Redis(host='localhost', port=6379, db=0, password=None)
-        self.mysql_client = pymysql.connect(host="localhost", user="root", password="root", db="zhihu", charset="utf8")
+        self.redis_client = Redis(
+            host=REDIS_HOST, port=REDIS_PORT, db=DEFAULT_REDIS_DB, password=REDIS_PASSWORD)
 
+        self.mysql_client = pymysql.connect(
+            host=MYSQL_HOST, user=MYSQL_USER, port=MYSQL_PORT, password=MYSQL_PASSWORD, db=MYSQL_DB, charset="utf8")
 
     def close_spider(self, spider):
         self.redis_client = None
@@ -156,7 +170,7 @@ class RootPipeline(object):
                 cursor.execute('INSERT INTO question(id, title, type, question_type, create_time, insert_time)'
                                 'VALUES ''("%s", "%s", "%s", "%s", "%s", "%s") '
                                 'ON DUPLICATE KEY UPDATE type="%s"'
-                                % (id, title, type, question_type, create_time, insert_time, type))
+                                % (id, title.replace("\"","'"), type, question_type, create_time, insert_time, type))
 
                 self.mysql_client.commit()
                 cursor.close()
@@ -214,14 +228,15 @@ if __name__=='__main__':
     # print(time.localtime())
     # print(time.strftime("%Y-%m-%d %H:%M:%S",time.localtime(int("1521088267"))))
 
-    mysql_client = pymysql.connect(host="localhost", user="root", password="root", db="zhihu", charset="utf8")
+    mysql_client = pymysql.connect(host=MYSQL_HOST, user=MYSQL_USER, password=MYSQL_PASSWORD, db=MYSQL_DB, charset="utf8")
     cursor =  mysql_client.cursor()
-    re = cursor.execute('SELECT id FROM question WHERE create_time > "2016-01-01"')
+    re = cursor.execute('SELECT id FROM question WHERE create_time > "2018-01-01"')
 
-    client = Redis(host='localhost', port=6379, db=0, password=None)
+    client = Redis(host=REDIS_HOST, port=6379, db=0, password=REDIS_PASSWORD)
     for i in cursor:
         print(str(client.sadd("zhihu:question", i[0])))
 
-
+    # fetcher = ProxyFetcher('zhihu', strategy='greedy', length=5)
+    # print(fetcher.get_proxy())
 
 
